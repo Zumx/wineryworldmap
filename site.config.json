@@ -1,0 +1,34 @@
+{
+  "name": "Winery World Map",
+  "slug": "wineryworldmap",
+  "emoji": "🍷",
+  "domain": "wineryworldmap.com",
+  "colors": {
+    "primary": "#6b1f3a",
+    "accent": "#d4af37"
+  },
+  "osm": {
+    "key": "craft",
+    "value": "winery"
+  },
+  "mappedNoun": "wineries",
+  "unnamedLabel": "Unnamed winery",
+  "metaFields": [
+    {
+      "key": "type",
+      "label": "Type"
+    }
+  ],
+  "locales": [
+    "en"
+  ],
+  "defaultLocale": "en",
+  "namedOnly": false,
+  "dataSource": {
+    "type": "overpass"
+  },
+  "googlePlaces": {
+    "enabled": false,
+    "cap": 800
+  }
+}
