@@ -27,11 +27,7 @@ export default async function CountryPage({ params }) {
   const data = await countryBySlug(country);
   if (!data) notFound();
 
-  const named = data.features
-    .filter((f) => f.properties && f.properties.name)
-    .map((f) => f.properties.name)
-    .sort((a, b) => a.localeCompare(b))
-    .slice(0, 500);
+  const named = (data.names || []).slice(0, 300);
 
   return (
     <main className="container prose">

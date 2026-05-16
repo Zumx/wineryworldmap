@@ -5,6 +5,7 @@
   "scripts": {
     "fetch-data": "node scripts/fetch-data.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/build-index.mjs",
     "build": "next build",
     "start": "next start"
   },

@@ -11,6 +11,7 @@ import { writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
+import { writeCountryIndex } from "./build-index.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -22,6 +23,23 @@ const site = JSON.parse(
 const OSM_KEY = site.osm.key;
 const OSM_VALUE = site.osm.value;
 const NAMED_ONLY = site.namedOnly === true;
+// Optional config-driven tag filter (Overpass source). Backward-compatible:
+// absent => no extra filtering. Shape:
+//   { "requireName": true, "anyOf": [ { "key": "access", "values": ["yes"] } ] }
+// Keeps a feature only if it has a name (when requireName) AND at least one
+// anyOf condition matches one of the element's tag values.
+const INCLUDE = site.includeFilter || null;
+function passesInclude(tags, name) {
+  if (!INCLUDE) return true;
+  if (INCLUDE.requireName && !name) return false;
+  if (Array.isArray(INCLUDE.anyOf) && INCLUDE.anyOf.length) {
+    const ok = INCLUDE.anyOf.some(
+      (c) => c && Array.isArray(c.values) && c.values.includes(tags[c.key])
+    );
+    if (!ok) return false;
+  }
+  return true;
+}
 // Pluggable data source: "overpass" (default) or "openbrewerydb".
 const DATA_SOURCE = site.dataSource || { type: "overpass" };
 const GP = site.googlePlaces || {};
@@ -269,6 +287,7 @@ async function main() {
     const out = join(ROOT, "public", "data", "points.geojson");
     mkdirSync(dirname(out), { recursive: true });
     writeFileSync(out, JSON.stringify({ type: "FeatureCollection", features }));
+    writeCountryIndex(features, join(ROOT, "public", "data"));
     const withCountry = features.filter((f) => f.properties.country).length;
     console.log(
       `\nWrote ${features.length} features (${withCountry} country-tagged) -> ${out}`
@@ -307,6 +326,7 @@ async function main() {
       const t = el.tags || {};
       const name = t.name || t["name:en"] || null;
       if (NAMED_ONLY && !name) continue;
+      if (!passesInclude(t, name)) continue;
       seen.add(key);
       features.push({
         type: "Feature",

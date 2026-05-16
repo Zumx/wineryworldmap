@@ -24,6 +24,7 @@
   ],
   "defaultLocale": "en",
   "namedOnly": false,
+  "includeFilter": null,
   "dataSource": {
     "type": "overpass"
   },

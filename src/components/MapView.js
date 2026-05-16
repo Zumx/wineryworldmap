@@ -35,13 +35,17 @@ export default function MapView({ embedded = false }) {
       preferCanvas: true,
     });
     mapRef.current = map;
+    if (typeof window !== "undefined") window.__wmMap = map;
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: "&copy; OpenStreetMap contributors",
     }).addTo(map);
 
-    const renderer = L.canvas({ padding: 0.5 });
+    // tolerance expands the clickable area around each canvas circle so
+    // small 5–6px markers are actually hittable (default 0 = must click the
+    // exact center, which made pins feel "unclickable").
+    const renderer = L.canvas({ padding: 0.5, tolerance: 12 });
     const popup = L.popup();
 
     const makeCluster = () =>
@@ -63,11 +67,12 @@ export default function MapView({ embedded = false }) {
       const c = f.geometry.coordinates;
       const m = L.circleMarker([c[1], c[0]], {
         renderer,
-        radius: 5,
-        weight: 1,
+        radius: 6,
+        weight: 2,
         color: "#ffffff",
         fillColor: CLUSTER_COLOR,
-        fillOpacity: 0.85,
+        fillOpacity: 0.9,
+        bubblingMouseEvents: false,
       });
       m.feature = f;
       return m;
@@ -80,8 +85,20 @@ export default function MapView({ embedded = false }) {
       const f = e.layer && e.layer.feature;
       if (f) setSelected(f);
     };
-    namedCluster.on("click", onClick);
-    unnamedCluster.on("click", onClick);
+    // Cursor affordance: canvas circle markers don't change the cursor on
+    // their own, so users can't tell a pin is clickable.
+    const setCursor = (c) => {
+      if (containerRef.current) containerRef.current.style.cursor = c;
+    };
+    const onOver = (e) => {
+      if (e.layer && e.layer.feature) setCursor("pointer");
+    };
+    const onOut = () => setCursor("");
+    for (const cl of [namedCluster, unnamedCluster]) {
+      cl.on("click", onClick);
+      cl.on("mouseover", onOver);
+      cl.on("mouseout", onOut);
+    }
 
     const NOUN = site.mappedNoun;
     let showAll =
