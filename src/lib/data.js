@@ -36,5 +36,6 @@ export async function countryBySlug(slug) {
     slug: e.slug,
     count: e.count,
     names: e.names || [],
+    places: e.places || [],
   };
 }

@@ -3,7 +3,12 @@
 // feature) dataset — that caused build-worker OOM on large sites.
 //
 // Output: public/data/countries.json
-//   [{ name, slug, count, names: [up to 300 sample names] }]  (count desc)
+//   [{ name, slug, count,
+//      names:  [up to 300 sample names],
+//      places: [up to 500 { name, lat, lon }] }]  (count desc)
+//
+// `places` powers the per-country SEO landing pages (name + coordinates +
+// link to the map). Capped so the index stays tiny on huge datasets.
 //
 // Used as an npm "prebuild" step and also called directly by
 // fetch-data.mjs after a fresh fetch.
@@ -27,15 +32,29 @@ export function buildCountryIndex(features) {
     if (!c) continue;
     let e = map.get(c);
     if (!e) {
-      e = { name: c, slug: countrySlug(c), count: 0, names: [] };
+      e = { name: c, slug: countrySlug(c), count: 0, names: [], places: [] };
       map.set(c, e);
     }
     e.count += 1;
     const nm = f.properties.name;
     if (nm && e.names.length < 300) e.names.push(nm);
+    const g = f.geometry && f.geometry.coordinates;
+    if (nm && g && e.places.length < 500) {
+      const lon = Number(g[0]);
+      const lat = Number(g[1]);
+      if (Number.isFinite(lat) && Number.isFinite(lon))
+        e.places.push({
+          name: nm,
+          lat: Math.round(lat * 1e5) / 1e5,
+          lon: Math.round(lon * 1e5) / 1e5,
+        });
+    }
   }
   const list = [...map.values()].sort((a, b) => b.count - a.count);
-  for (const e of list) e.names.sort((a, b) => a.localeCompare(b));
+  for (const e of list) {
+    e.names.sort((a, b) => a.localeCompare(b));
+    e.places.sort((a, b) => a.name.localeCompare(b.name));
+  }
   return list;
 }
 

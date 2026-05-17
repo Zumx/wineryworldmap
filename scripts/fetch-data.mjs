@@ -213,6 +213,22 @@ function countryFor(countries, lon, lat) {
   return null;
 }
 
+// Compose a human address from OSM addr:* tags (best-effort; null if none).
+function osmAddress(t) {
+  if (t["addr:full"]) return t["addr:full"];
+  const line = [t["addr:housenumber"], t["addr:street"]]
+    .filter(Boolean)
+    .join(" ");
+  const parts = [
+    line,
+    t["addr:postcode"] && t["addr:city"]
+      ? `${t["addr:postcode"]} ${t["addr:city"]}`
+      : t["addr:city"] || t["addr:postcode"],
+    t["addr:country"],
+  ].filter(Boolean);
+  return parts.length ? parts.join(", ") : null;
+}
+
 // ---- metaFields -> OSM tag resolution (the slot system) ----
 function resolveMeta(tags) {
   const out = {};
@@ -325,6 +341,15 @@ async function fetchOpenBreweryDb() {
           opening_hours: null,
           capacity: null,
           phone: b.phone || null,
+          address:
+            [
+              b.street,
+              [b.postal_code, b.city].filter(Boolean).join(" "),
+              b.state || b.state_province,
+              b.country,
+            ]
+              .filter(Boolean)
+              .join(", ") || null,
           city: b.city || null,
           state: b.state || b.state_province || null,
           type: b.brewery_type || null,
@@ -403,6 +428,7 @@ async function main() {
           opening_hours: t.opening_hours || null,
           capacity: t.capacity || null,
           phone: t.phone || t["contact:phone"] || null,
+          address: osmAddress(t),
           osmType: el.type,
           osmId: el.id,
           ...resolveMeta(t),

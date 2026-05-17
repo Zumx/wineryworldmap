@@ -21,12 +21,14 @@
   "dedupeMeters": 0,
   "mappedNoun": "wineries",
   "unnamedLabel": "Unnamed winery",
+  "affiliateUrl": "https://www.getyourguide.com/s/?q={q}",
   "metaFields": [
     {
       "key": "type",
       "label": "Type"
     }
   ],
+  "aboutText": null,
   "locales": [
     "en"
   ],
