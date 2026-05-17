@@ -22,6 +22,20 @@ const site = JSON.parse(
 );
 const OSM_KEY = site.osm.key;
 const OSM_VALUE = site.osm.value;
+// One or more OSM key/value filters. Defaults to the primary osm tag;
+// multi-tag sites (mineshaft+mine, sport=motor+highway=raceway) set
+// site.osmFilters: [{ key, value }, ...].
+const FILTERS =
+  Array.isArray(site.osmFilters) && site.osmFilters.length
+    ? site.osmFilters
+    : [{ key: OSM_KEY, value: OSM_VALUE }];
+// Include relations (multipolygons) — needed for area features like reefs.
+// "out center" then yields a centroid for ways and relations alike.
+const INCLUDE_RELATIONS = site.includeRelations === true;
+// Drop points within this many metres of an already-kept point (collapses
+// overlapping representations of one place, e.g. a raceway way plus a
+// sport=motor node). 0 = no proximity dedup.
+const DEDUPE_M = Number.isFinite(site.dedupeMeters) ? site.dedupeMeters : 0;
 const NAMED_ONLY = site.namedOnly === true;
 // Optional config-driven tag filter (Overpass source). Backward-compatible:
 // absent => no extra filtering. Shape:
@@ -65,12 +79,57 @@ const LAT_MIN = -60,
   LON_MAX = 180;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const buildQuery = (s, w, n, e) => `[out:json][timeout:180];
+// Grid-bucketed proximity dedupe: keep a feature only if no already-kept
+// feature lies within `meters`. Named features win over unnamed ones, so
+// pass 1 keeps all named, pass 2 adds unnamed that are still isolated.
+function proximityDedupe(features, meters) {
+  const cell = meters / 111320; // ~degrees latitude per metre
+  const kept = [];
+  const grid = new Map();
+  const near = (lon, lat) => {
+    const gx = Math.floor(lon / cell);
+    const gy = Math.floor(lat / cell);
+    for (let dx = -1; dx <= 1; dx++)
+      for (let dy = -1; dy <= 1; dy++) {
+        const bucket = grid.get(`${gx + dx}:${gy + dy}`);
+        if (!bucket) continue;
+        for (const [bl, ba] of bucket) {
+          const mx = (lon - bl) * 111320 * Math.cos((lat * Math.PI) / 180);
+          const my = (lat - ba) * 111320;
+          if (mx * mx + my * my <= meters * meters) return true;
+        }
+      }
+    return false;
+  };
+  const add = (f) => {
+    const [lon, lat] = f.geometry.coordinates;
+    if (near(lon, lat)) return;
+    kept.push(f);
+    const k = `${Math.floor(lon / cell)}:${Math.floor(lat / cell)}`;
+    let b = grid.get(k);
+    if (!b) grid.set(k, (b = []));
+    b.push([lon, lat]);
+  };
+  for (const f of features) if (f.properties.name) add(f);
+  for (const f of features) if (!f.properties.name) add(f);
+  return kept;
+}
+
+const buildQuery = (s, w, n, e) => {
+  const bbox = `(${s},${w},${n},${e})`;
+  const lines = [];
+  for (const { key, value } of FILTERS) {
+    const sel = `["${key}"="${value}"]`;
+    lines.push(`  node${sel}${bbox};`);
+    lines.push(`  way${sel}${bbox};`);
+    if (INCLUDE_RELATIONS) lines.push(`  relation${sel}${bbox};`);
+  }
+  return `[out:json][timeout:180];
 (
-  node["${OSM_KEY}"="${OSM_VALUE}"](${s},${w},${n},${e});
-  way["${OSM_KEY}"="${OSM_VALUE}"](${s},${w},${n},${e});
+${lines.join("\n")}
 );
 out center tags;`;
+};
 
 async function fetchTile(s, w, n, e) {
   const body = "data=" + encodeURIComponent(buildQuery(s, w, n, e));
@@ -310,7 +369,10 @@ async function main() {
         Math.min(lon + TILE, LON_MAX),
       ]);
 
-  console.log(`Fetching ${OSM_KEY}=${OSM_VALUE} in ${tiles.length} tiles...`);
+  const filterDesc = FILTERS.map((f) => `${f.key}=${f.value}`).join(" + ");
+  console.log(
+    `Fetching ${filterDesc}${INCLUDE_RELATIONS ? " (+relations)" : ""} in ${tiles.length} tiles...`
+  );
   let i = 0;
   for (const [s, w, n, e] of tiles) {
     i++;
@@ -352,14 +414,24 @@ async function main() {
     await sleep(1200);
   }
 
-  await enrichGoogle(features);
+  const deduped = DEDUPE_M > 0 ? proximityDedupe(features, DEDUPE_M) : features;
+  if (deduped !== features)
+    console.log(
+      `Proximity dedupe (${DEDUPE_M}m): ${features.length} -> ${deduped.length}`
+    );
+
+  await enrichGoogle(deduped);
 
   const out = join(ROOT, "public", "data", "points.geojson");
   mkdirSync(dirname(out), { recursive: true });
-  writeFileSync(out, JSON.stringify({ type: "FeatureCollection", features }));
-  const withCountry = features.filter((f) => f.properties.country).length;
+  writeFileSync(
+    out,
+    JSON.stringify({ type: "FeatureCollection", features: deduped })
+  );
+  writeCountryIndex(deduped, join(ROOT, "public", "data"));
+  const withCountry = deduped.filter((f) => f.properties.country).length;
   console.log(
-    `\nWrote ${features.length} features (${withCountry} country-tagged) -> ${out}`
+    `\nWrote ${deduped.length} features (${withCountry} country-tagged) -> ${out}`
   );
 }
 

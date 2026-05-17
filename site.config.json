@@ -11,6 +11,14 @@
     "key": "craft",
     "value": "winery"
   },
+  "osmFilters": [
+    {
+      "key": "craft",
+      "value": "winery"
+    }
+  ],
+  "includeRelations": false,
+  "dedupeMeters": 0,
   "mappedNoun": "wineries",
   "unnamedLabel": "Unnamed winery",
   "metaFields": [
