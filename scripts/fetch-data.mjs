@@ -11,7 +11,7 @@ import { writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
-import { writeCountryIndex } from "./build-index.mjs";
+import { writeCountryIndex, writeSplit, readInitialCap } from "./build-index.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -372,6 +372,7 @@ async function main() {
     mkdirSync(dirname(out), { recursive: true });
     writeFileSync(out, JSON.stringify({ type: "FeatureCollection", features }));
     writeCountryIndex(features, join(ROOT, "public", "data"));
+    writeSplit(features, join(ROOT, "public", "data"), readInitialCap(ROOT));
     const withCountry = features.filter((f) => f.properties.country).length;
     console.log(
       `\nWrote ${features.length} features (${withCountry} country-tagged) -> ${out}`
@@ -455,6 +456,7 @@ async function main() {
     JSON.stringify({ type: "FeatureCollection", features: deduped })
   );
   writeCountryIndex(deduped, join(ROOT, "public", "data"));
+  writeSplit(deduped, join(ROOT, "public", "data"), readInitialCap(ROOT));
   const withCountry = deduped.filter((f) => f.properties.country).length;
   console.log(
     `\nWrote ${deduped.length} features (${withCountry} country-tagged) -> ${out}`

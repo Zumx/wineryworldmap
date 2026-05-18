@@ -113,61 +113,101 @@ export default function MapView({ embedded = false }) {
     let showAll =
       typeof window !== "undefined" && localStorage.getItem(LS_KEY) === "1";
 
-    fetch("/data/points.geojson")
-      .then((r) => r.json())
-      .then((geo) => {
-        const feats = geo.features || [];
-        const named = [];
-        const unnamed = [];
-        for (const f of feats) {
-          if (f.properties && f.properties.name) named.push(f);
-          else unnamed.push(f);
-        }
-        namedCluster.addLayers(named.map(mkMarker));
-        map.addLayer(namedCluster);
+    // Progressive load: a small "core" file (top-priority features) is
+    // fetched + rendered first so the map is interactive in ~1-2s even on
+    // 200k-feature sites; the larger "rest" file is then fetched while the
+    // browser is idle and appended, so the full dataset still ends up on
+    // the map without ever blocking first paint. Older deployments that
+    // predate the split have no core file — fall back to points.geojson.
+    const named = [];
+    const unnamed = [];
+    let namedAdded = 0;
+    let unnamedAdded = 0;
+    let toggleAdded = false;
 
-        const countEl = document.getElementById("point-count");
-        let unnamedBuilt = false;
-        const setCount = () => {
-          if (!countEl) return;
-          countEl.textContent = showAll
-            ? t("allCount", { count: named.length + unnamed.length, noun: NOUN })
-            : t("namedCount", { count: named.length, noun: NOUN });
-        };
-        const applyShowAll = () => {
-          if (showAll && unnamed.length) {
-            if (!unnamedBuilt) {
-              unnamedCluster.addLayers(unnamed.map(mkMarker));
-              unnamedBuilt = true;
-            }
-            map.addLayer(unnamedCluster);
-          } else if (map.hasLayer(unnamedCluster)) {
-            map.removeLayer(unnamedCluster);
-          }
-          setCount();
-        };
-        applyShowAll();
-
-        if (unnamed.length) {
-          const Toggle = L.Control.extend({
-            onAdd() {
-              const b = L.DomUtil.create("button", "map-toggle");
-              const label = () => {
-                b.textContent = showAll ? t("namedOnly") : t("showAll");
-              };
-              label();
-              L.DomEvent.disableClickPropagation(b);
-              b.addEventListener("click", () => {
-                showAll = !showAll;
-                localStorage.setItem(LS_KEY, showAll ? "1" : "0");
-                label();
-                applyShowAll();
-              });
-              return b;
-            },
+    const setCount = () => {
+      const el = document.getElementById("point-count");
+      if (!el) return;
+      el.textContent = showAll
+        ? t("allCount", { count: named.length + unnamed.length, noun: NOUN })
+        : t("namedCount", { count: named.length, noun: NOUN });
+    };
+    const flushNamed = () => {
+      if (named.length > namedAdded) {
+        namedCluster.addLayers(named.slice(namedAdded).map(mkMarker));
+        namedAdded = named.length;
+      }
+    };
+    const flushUnnamed = () => {
+      if (unnamed.length > unnamedAdded) {
+        unnamedCluster.addLayers(unnamed.slice(unnamedAdded).map(mkMarker));
+        unnamedAdded = unnamed.length;
+      }
+    };
+    const applyShowAll = () => {
+      if (showAll) {
+        flushUnnamed();
+        if (unnamed.length && !map.hasLayer(unnamedCluster))
+          map.addLayer(unnamedCluster);
+      } else if (map.hasLayer(unnamedCluster)) {
+        map.removeLayer(unnamedCluster);
+      }
+      setCount();
+    };
+    const ensureToggle = () => {
+      if (toggleAdded || !unnamed.length) return;
+      toggleAdded = true;
+      const Toggle = L.Control.extend({
+        onAdd() {
+          const b = L.DomUtil.create("button", "map-toggle");
+          const label = () => {
+            b.textContent = showAll ? t("namedOnly") : t("showAll");
+          };
+          label();
+          L.DomEvent.disableClickPropagation(b);
+          b.addEventListener("click", () => {
+            showAll = !showAll;
+            localStorage.setItem(LS_KEY, showAll ? "1" : "0");
+            label();
+            applyShowAll();
           });
-          map.addControl(new Toggle({ position: "topright" }));
-        }
+          return b;
+        },
+      });
+      map.addControl(new Toggle({ position: "topright" }));
+    };
+
+    const ingest = (feats) => {
+      for (const f of feats) {
+        if (f.properties && f.properties.name) named.push(f);
+        else unnamed.push(f);
+      }
+      flushNamed();
+      if (!map.hasLayer(namedCluster)) map.addLayer(namedCluster);
+      applyShowAll();
+      ensureToggle();
+    };
+
+    const loadRest = () =>
+      fetch("/data/points.rest.geojson")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((g) => g && ingest(g.features || []))
+        .catch(() => {});
+
+    fetch("/data/points.core.geojson")
+      .then((r) => {
+        if (r.ok) return r.json();
+        // Pre-split deployment: load the whole file the old way.
+        return fetch("/data/points.geojson")
+          .then((r2) => r2.json())
+          .then((g) => ({ __full: true, features: g.features }));
+      })
+      .then((res) => {
+        ingest((res && res.features) || []);
+        if (res && res.__full) return; // full set already loaded
+        const idle =
+          window.requestIdleCallback || ((fn) => setTimeout(fn, 200));
+        idle(loadRest);
       })
       .catch(() => {
         const el = document.getElementById("point-count");
