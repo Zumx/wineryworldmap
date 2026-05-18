@@ -51,12 +51,14 @@ export default function MapView({ embedded = false }) {
     const makeCluster = () =>
       L.markerClusterGroup({
         chunkedLoading: true,
-        maxClusterRadius: 45,
+        maxClusterRadius: 35,
         // Without this, points stay merged into numbered clusters until
         // extreme zoom — users only ever see/click clusters (which just
         // zoom) and perceive individual points as "unclickable". At zoom
-        // >= 10 every point is its own clickable marker.
-        disableClusteringAtZoom: 10,
+        // >= 7 every point is its own clickable marker. Kept fairly low
+        // (and maxClusterRadius small) because sparse datasets like mines
+        // otherwise stay clustered well past the zoom users actually use.
+        disableClusteringAtZoom: 7,
         spiderfyOnMaxZoom: true,
         showCoverageOnHover: false,
         zoomToBoundsOnClick: true,
