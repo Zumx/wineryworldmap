@@ -14,6 +14,11 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }) {
   const { locale } = await params;
   const base = `https://${site.domain}`;
+  // hreflang for each locale + x-default to the default locale's URL.
+  const languages = Object.fromEntries(
+    routing.locales.map((l) => [l, `/${l}`])
+  );
+  languages["x-default"] = `/${routing.defaultLocale}`;
   return {
     metadataBase: new URL(base),
     title: {
@@ -21,12 +26,17 @@ export async function generateMetadata({ params }) {
       template: `%s · ${site.name}`,
     },
     description: `${site.name} — an interactive world map of every ${site.mappedNoun}, sourced live from OpenStreetMap.`,
-    alternates: { canonical: locale === routing.defaultLocale ? "/" : `/${locale}` },
+    alternates: {
+      canonical: `/${locale}`,
+      languages,
+    },
     openGraph: {
       title: `${site.name} ${site.emoji}`,
       description: `An interactive world map of every ${site.mappedNoun}.`,
       type: "website",
-      url: base,
+      url: `${base}/${locale}`,
+      locale,
+      alternateLocale: routing.locales.filter((l) => l !== locale),
     },
   };
 }
