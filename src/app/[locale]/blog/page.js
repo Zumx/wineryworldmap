@@ -11,7 +11,7 @@ export default async function BlogIndex({ params }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("blog");
-  const posts = await listPosts();
+  const posts = await listPosts(locale);
 
   return (
     <main className="container">
