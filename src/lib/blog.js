@@ -10,7 +10,7 @@
 // listPosts(locale) returns posts in <locale>/, plus any legacy root posts
 // when locale === defaultLocale (so existing English posts stay visible).
 // Slug collisions resolve in favour of the locale-specific file.
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, access } from "node:fs/promises";
 import { join } from "node:path";
 import matter from "gray-matter";
 import { routing } from "../i18n/routing.js";
@@ -69,4 +69,59 @@ export async function getPost(locale, slug) {
   }
 
   return null;
+}
+
+// Locales where <slug>.mdx actually exists. Used to emit hreflang alternates
+// only for sibling locales that have the post, never pointing at a 404.
+export async function getPostLocales(slug) {
+  const out = [];
+  for (const locale of routing.locales) {
+    try {
+      await access(join(DIR, locale, `${slug}.mdx`));
+      out.push(locale);
+      continue;
+    } catch {}
+    if (locale === routing.defaultLocale) {
+      try {
+        await access(join(DIR, `${slug}.mdx`));
+        out.push(locale);
+      } catch {}
+    }
+  }
+  return out;
+}
+
+// Deterministic "related" pick: posts in the same locale sharing the most
+// kebab-cased slug tokens, then most recent. Stopwords and length-1 tokens
+// are ignored so e.g. "in" doesn't dominate similarity.
+const STOP = new Set([
+  "a", "an", "the", "of", "in", "on", "to", "and", "or", "for", "at",
+  "by", "with", "from", "10", "top", "vs", "is", "are", "be",
+]);
+
+function tokens(slug) {
+  return slug
+    .split("-")
+    .filter((t) => t.length > 1 && !STOP.has(t.toLowerCase()));
+}
+
+export async function relatedPosts(locale, slug, limit = 3) {
+  const all = await listPosts(locale);
+  const mySet = new Set(tokens(slug));
+  if (mySet.size === 0) {
+    return all.filter((p) => p.slug !== slug).slice(0, limit);
+  }
+  const scored = all
+    .filter((p) => p.slug !== slug)
+    .map((p) => {
+      const t = tokens(p.slug);
+      let overlap = 0;
+      for (const w of t) if (mySet.has(w)) overlap++;
+      return { ...p, _score: overlap };
+    })
+    .sort((a, b) => {
+      if (b._score !== a._score) return b._score - a._score;
+      return String(b.date).localeCompare(String(a.date));
+    });
+  return scored.slice(0, limit);
 }

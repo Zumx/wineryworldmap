@@ -239,6 +239,26 @@ a {
   font-size: 13px;
   color: color-mix(in srgb, var(--text) 55%, white);
 }
+.related-posts {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.related-posts h2 {
+  font-size: 18px;
+  margin: 0 0 12px;
+}
+.related-posts ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+.related-posts a {
+  text-decoration: none;
+  font-weight: 600;
+}
 
 /* ---- Fullscreen map ---- */
 .map-root {

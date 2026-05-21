@@ -50,7 +50,8 @@
     "heading": "Blog",
     "empty": "Aucun article pour le moment.",
     "back": "← Retour au blog",
-    "readMore": "Lire la suite →"
+    "readMore": "Lire la suite →",
+    "related": "Articles liés"
   },
   "about": {
     "heading": "À propos",

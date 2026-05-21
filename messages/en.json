@@ -50,7 +50,8 @@
     "heading": "Blog",
     "empty": "No posts yet.",
     "back": "← Back to blog",
-    "readMore": "Read more →"
+    "readMore": "Read more →",
+    "related": "Related posts"
   },
   "about": {
     "heading": "About",

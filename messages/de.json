@@ -50,7 +50,8 @@
     "heading": "Blog",
     "empty": "Noch keine Beiträge.",
     "back": "← Zurück zum Blog",
-    "readMore": "Weiterlesen →"
+    "readMore": "Weiterlesen →",
+    "related": "Verwandte Beiträge"
   },
   "about": {
     "heading": "Über",
