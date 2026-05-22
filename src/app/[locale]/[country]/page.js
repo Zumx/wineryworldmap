@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { Link } from "../../../i18n/navigation.js";
+import { routing } from "../../../i18n/routing.js";
 import { site } from "../../../lib/site.js";
 import { listCountries, countryBySlug } from "../../../lib/data.js";
 
@@ -12,17 +13,21 @@ export async function generateStaticParams() {
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 export async function generateMetadata({ params }) {
-  const { country } = await params;
+  const { locale, country } = await params;
   const data = await countryBySlug(country);
   if (!data) return {};
   const niche = cap(site.mappedNoun);
   const x = data.count.toLocaleString();
   const title = `${niche} in ${data.name} — ${x} locations on the map`;
   const description = `Explore ${x} ${site.mappedNoun} in ${data.name}. Interactive map with photos and information.`;
+  const languages = Object.fromEntries(
+    routing.locales.map((l) => [l, `/${l}/${country}`])
+  );
+  languages["x-default"] = `/${routing.defaultLocale}/${country}`;
   return {
     title,
     description,
-    alternates: { canonical: `/${country}` },
+    alternates: { canonical: `/${locale}/${country}`, languages },
     openGraph: { title, description, type: "website" },
   };
 }
@@ -74,7 +79,7 @@ export default async function CountryPage({ params }) {
       <p>{t("intro", { country: data.name })}</p>
       <p>
         <Link className="btn btn-primary" href="/map">
-          {site.emoji} Open the interactive map
+          {site.emoji} {t("openOnMap")}
         </Link>
       </p>
 

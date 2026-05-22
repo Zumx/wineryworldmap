@@ -35,13 +35,16 @@ export async function generateMetadata({ params }) {
     languages["x-default"] = `/${routing.defaultLocale}/blog/${slug}`;
   }
 
+  const title = post.meta.title || slug;
+  const description = post.meta.description || post.meta.excerpt || undefined;
   return {
-    title: post.meta.title || slug,
-    description: post.meta.description || post.meta.excerpt || undefined,
+    title,
+    description,
     alternates: {
       canonical: `/${locale}/blog/${slug}`,
       languages,
     },
+    openGraph: { title, description, type: "article" },
   };
 }
 

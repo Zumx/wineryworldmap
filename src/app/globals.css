@@ -67,18 +67,18 @@ a {
 .site-header nav a:hover {
   color: var(--accent);
 }
-.locale-switch {
+.language-switcher {
   display: flex;
   gap: 6px;
 }
-.locale-switch a {
+.language-switcher a {
   font-size: 12px;
   text-transform: uppercase;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 3px 7px;
 }
-.locale-switch a.active {
+.language-switcher a.active {
   background: var(--primary);
   color: #fff;
   border-color: var(--primary);

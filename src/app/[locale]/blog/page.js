@@ -1,10 +1,19 @@
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { Link } from "../../../i18n/navigation.js";
+import { routing } from "../../../i18n/routing.js";
 import { listPosts } from "../../../lib/blog.js";
 
-export async function generateMetadata() {
+export async function generateMetadata({ params }) {
+  const { locale } = await params;
   const t = await getTranslations("blog");
-  return { title: t("heading") };
+  const languages = Object.fromEntries(
+    routing.locales.map((l) => [l, `/${l}/blog`])
+  );
+  languages["x-default"] = `/${routing.defaultLocale}/blog`;
+  return {
+    title: t("heading"),
+    alternates: { canonical: `/${locale}/blog`, languages },
+  };
 }
 
 export default async function BlogIndex({ params }) {

@@ -1,11 +1,18 @@
-import { setRequestLocale } from "next-intl/server";
-import { getTranslations } from "next-intl/server";
-import { site } from "../../../lib/site.js";
+import { setRequestLocale, getTranslations } from "next-intl/server";
+import { routing } from "../../../i18n/routing.js";
 import MapClient from "../../../components/MapClient.js";
 
-export async function generateMetadata() {
+export async function generateMetadata({ params }) {
+  const { locale } = await params;
   const t = await getTranslations("nav");
-  return { title: t("map") };
+  const languages = Object.fromEntries(
+    routing.locales.map((l) => [l, `/${l}/map`])
+  );
+  languages["x-default"] = `/${routing.defaultLocale}/map`;
+  return {
+    title: t("map"),
+    alternates: { canonical: `/${locale}/map`, languages },
+  };
 }
 
 export default async function MapPage({ params }) {

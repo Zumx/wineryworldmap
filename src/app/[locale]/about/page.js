@@ -1,11 +1,18 @@
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { site } from "../../../lib/site.js";
+import { routing } from "../../../i18n/routing.js";
 
-export async function generateMetadata() {
+export async function generateMetadata({ params }) {
+  const { locale } = await params;
   const t = await getTranslations("about");
+  const languages = Object.fromEntries(
+    routing.locales.map((l) => [l, `/${l}/about`])
+  );
+  languages["x-default"] = `/${routing.defaultLocale}/about`;
   return {
     title: t("heading"),
     description: `About ${site.name} — an interactive world map of every ${site.mappedNoun}, sourced from OpenStreetMap.`,
+    alternates: { canonical: `/${locale}/about`, languages },
   };
 }
 
